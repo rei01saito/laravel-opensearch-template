@@ -1,0 +1,58 @@
+services:
+  app:
+    container_name: laravel-template-app
+    build: ./.docker/app
+    volumes:
+      - ./:/var/www/html
+
+  nginx:
+    container_name: laravel-template-nginx
+    build: ./.docker/nginx
+    ports:
+      - 8080:80
+    depends_on:
+      - app
+    volumes:
+      - ./:/var/www/html
+  
+  mysql:
+    container_name: laravel-template-mysql
+    image: mysql:8.0
+    ports:
+      - 3306:3306
+    volumes:
+      - ./.docker/mysql/data:/var/lib/mysql
+      - ./.docker/mysql/my.cnf:/etc/msql/conf.d
+    environment:
+      MYSQL_DATABASE: laravel_template
+      MYSQL_USER: laravel_template
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+      TZ: 'Asia/Tokyo'
+  
+  minio:
+    container_name: laravel-template-minio
+    image: minio/minio
+    ports:
+      - 9000:9999
+      - 9001:9001
+    environment:
+      MINIO_ROOT_USER: access_key
+      MINIO_ROOT_PASSWORD: secret_key
+    command: server /export --address :9000 --console-address :9001
+  
+  create-buckets:
+    container_name: laravel-template-create-buckets
+    image: minio/mc
+    entrypoint: [""]
+    command:
+      - /bin/sh
+      - -c
+      - |
+        until (mc config host add minio http://minio:9000 access_key secret_key) do echo 'wait until add host' && sleep 1; done;
+        mc mb minio/public
+        mc mb minio/private
+        mc anonymous set public minio/public;
+        mc anonymous set private minio/private;
+    depends_on:
+      - minio
